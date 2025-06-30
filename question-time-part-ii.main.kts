@@ -736,6 +736,13 @@ fun terminate(state: StudyQuestionBankState): Boolean = state.stage == 2
 fun terminalStateToText(state: StudyQuestionBankState): String =
     "Study session completed!\nQuestions: ${state.attempts}, Attempts: ${state.attempts}"
 
+// Global variable to store the current classifier for nextState function
+private var currentClassifier: ((String) -> Boolean)? = null
+
+// Wrapper function for whatsNext that can be used with function reference
+fun nextState(state: StudyQuestionBankState, input: String): StudyQuestionBankState =
+    whatsNext(state, input, currentClassifier ?: { false })
+
 // Run a study session with a question bank and classifier.
 fun studyQuestionBank(
     questionBank: IQuestionBank,
@@ -748,10 +755,13 @@ fun studyQuestionBank(
         attempts = 0
     )
 
+    // Set the global classifier for this session
+    currentClassifier = classifier
+
     val finalState = reactConsole(
         initialState,
         ::stateToText,
-        { state, input -> whatsNext(state, input, classifier) },
+        ::nextState,
         ::terminate,
         ::terminalStateToText
     )
@@ -829,14 +839,14 @@ interface IClassifierOption : IMenuOption {
 class NaiveClassifierOption : IClassifierOption {
     override fun getTitle(): String = "Naive Classifier (Starts with 'Y' or 'y')"
 
-    override fun getClassifier(): Classifier = ::naiveClassifier
+    override fun getClassifier(): Classifier = { s -> naiveClassifier(s) }
 }
 
 // Option for an advanced classifier.
 class AdvancedClassifierOption : IClassifierOption {
     override fun getTitle(): String = "Advanced Classifier (k-NN with Levenshtein Distance)"
 
-    override fun getClassifier(): Classifier = ::classifier
+    override fun getClassifier(): Classifier = { s -> classifier(s) }
 }
 
 // Main function to run the study program.
